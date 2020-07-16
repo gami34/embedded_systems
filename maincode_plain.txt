@@ -1,0 +1,97 @@
+# import RPi.GPIO as io
+import blynklib
+import RPi.GPIO as io
+from time import sleep
+from gpiozero import LED
+
+# setup GPIO pins
+io.setwarnings(False)
+io.setmode(io.BCM)
+
+roomLight = LED(23)
+kitchenLight = LED(24)
+wcLight = LED(25)
+terraceLight = LED(8)
+alarm = LED(15)
+io.setup(18, io.OUT)                                   #Servo Motor signal pin setup
+io.setup(14, io.IN)                                     #door sensor pin setup
+
+#setting up pwm to control servo motor(motor opening and closing the door)
+pwm = io.PWM(18, 50)
+pwm.start(0)
+
+
+#Initialise Blynk server
+BLYNK_AUTH = 'nY17we5X7e8cqrRKuVWMT4jqtEwOmIHX'
+blynk = blynklib.Blynk(BLYNK_AUTH)
+
+#function to handle positioning of the servo motor
+def setAngle (angle):
+    duty = (angle/18) + 2
+    io.output(18, 1)
+    pwm.ChangeDutyCycle(duty)
+    sleep(0.3)
+    io.output(18, 0)
+    pwm.ChangeDutyCycle(0)
+
+#event handlers from the buttons
+@blynk.handle_event('write V0')                       #setup handler for controlling Room Light
+def roomlight_control_handler(pin, value):
+    if int(format(value[0])) == 1:
+        roomLight.on()
+    else:
+        roomLight.off()
+
+@blynk.handle_event('write V1')                       #setup handler for controlling Kitchen Light
+def kitchenlight_control_handler(pin, value):
+    if int(format(value[0])) == 1:
+        kitchenLight.on()
+    else:
+        kitchenLight.off() 
+
+@blynk.handle_event('write V4')                       #setup handler for controlling water-closet Light
+def wclight_control_handler(pin, value):
+    if int(format(value[0])) == 1:
+        wcLight.on()
+    else:
+        wcLight.off() 
+
+@blynk.handle_event('write V5')                       #setup handler for controlling Terrace Light
+def terracelight_control_handler(pin, value):
+    if int(format(value[0])) == 1:
+        terraceLight.on()
+    else:
+        terraceLight.off()
+
+@blynk.handle_event('write V6')                       #setup handler for controlling Alarm
+def alarm_control_handler(pin, value):
+    if int(format(value[0])) == 1:
+        alarm.on()
+    else:
+        alarm.off()
+
+@blynk.handle_event('write V2')                       #setup handler for controlling entrance door
+def door_control_handler(pin, value):
+    if int(format(value[0])) == 1:
+        setAngle(77)
+    else:
+        setAngle(4)
+
+#Function to handle interrupt for door sensing
+def doorsense(channel):
+    blynk.virtual_write(7, 'Door is open')
+    if (io.input(14) == 1):
+        blynk.virtual_write(3, 255)
+#     else:
+#         blynk.virtual_write(7, 'Door now Secure')
+
+io.add_event_detect(14, io.RISING, callback = doorsense, bouncetime = 250)
+        
+
+#main program loop
+
+while True:
+        blynk.run()
+        if (io.input(14) == 0):
+            blynk.virtual_write(3, 0)
+            
